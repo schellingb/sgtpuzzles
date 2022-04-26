@@ -50,7 +50,7 @@
 		</activity>
 		<provider
 			android:name=".FixedTypeFileProvider"
-			android:authorities="name.boyle.chris.sgtpuzzles.fileprovider"
+			android:authorities="name.boyle.chris.sgtpuzzles.fileprovidertest"
 			android:exported="false"
 			android:grantUriPermissions="true">
 			<meta-data

@@ -756,7 +756,7 @@ public class GamePlay extends ActivityWithLoadButton implements OnSharedPreferen
 		FileOutputStream out = new FileOutputStream(file);
 		out.write(content.getBytes());
 		out.close();
-		uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", file);
+		uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovidertest", file);
 		return uri;
 	}
 

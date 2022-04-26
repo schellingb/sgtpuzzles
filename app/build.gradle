@@ -81,77 +81,77 @@ android {
 }
 
 
-//task copyTestGames(type: Copy) {
-//    from('src/main/jni/icons') {
-//        include '*.sav'
-//    }
-//    into new File(project.buildDir, 'testGames')
-//}
-//
-//// Generate a Java enum of games: really this should use some CMake output instead of the regex
-//// hack, but the Android Gradle Plugin wants to compile the Java before running any of the CMake
-//project.extensions.findByName("android").applicationVariants.all { variant ->
-//    tasks["merge${variant.name.capitalize()}Assets"].dependsOn(copyTestGames)
-//    def sourceDir = new File(project.getBuildDir(), "generated/backendsEnum/${variant.name}")
-//    def myTask = tasks.register("generate${variant.name.capitalize()}BackendsEnum") {
-//        it.inputs.dir('src/main/jni')
-//        it.outputs.dir(sourceDir)
-//        it.doLast {
-//            def backends = new File('app/src/main/jni/CMakeLists.txt').text.findAll(~/puzzle\(\s*(\w+)\s+DISPLAYNAME\s+"([^"]+)"/) { m, puz, display ->
-//                def text = new File("app/src/main/jni/${puz}.c").text
-//                def match = text =~ /enum\s+\{\s*COL_[^,]+,\s*(COL_[^}]+)}/
-//                def colours = []
-//                if (match) {
-//                    colours = match.group(1).replaceAll(/(?s)\/\*.*?\*\//, "").replaceAll(/#[^\n]*\n/, "")
-//                            .trim().split(",")*.trim()*.replaceFirst(/^COL_/, "")*.toLowerCase()
-//                            .findAll { it =~ /^[^=]+$/ } - ["ncolours", "crossedline"]
-//                    if (colours.any { it =~ /[^a-z0-9_]/ }) {
-//                        throw new Exception("Couldn't parse colours for " + puz + ": " + match.group(1) + " -> " + colours)
-//                    }
-//                }
-//                [puz, display, ('new String[]{"' + colours.join('", "') + '"}')] }
-//            def out = new File("${it.outputs.files.singleFile}/name/boyle/chris/sgtpuzzles/BackendName.java")
-//            out.parentFile.mkdirs()
-//            out.delete()
-//            out.text = """package name.boyle.chris.sgtpuzzles;
-//                    |import java.util.Collections;
-//                    |import java.util.LinkedHashMap;
-//                    |import java.util.Map;
-//                    |import androidx.annotation.DrawableRes;
-//                    |import androidx.annotation.NonNull;
-//                    |import androidx.annotation.Nullable;
-//                    |
-//                    |/** Names of all the backends. Automatically generated file, do not modify. */
-//                    |public enum BackendName {
-//                    |    ${backends.collect {"${it[0].toUpperCase()}(\"${it[1]}\", R.drawable.day_${it[0]}, R.drawable.night_${it[0]}, ${it[2]})"}.join(",\n    ")};
-//                    |    private final String _displayName;
-//                    |    private final String[] _colours;
-//                    |    @DrawableRes private final int _dayIcon, _nightIcon;
-//                    |    private BackendName(@NonNull final String displayName, @DrawableRes final int dayIcon, @DrawableRes final int nightIcon, @NonNull final String[] colours) { _displayName = displayName; _dayIcon = dayIcon; _nightIcon = nightIcon; _colours = colours; }
-//                    |    @NonNull public String getDisplayName() { return _displayName; }
-//                    |    @DrawableRes public int getDayIcon() { return _dayIcon; }
-//                    |    @DrawableRes public int getNightIcon() { return _nightIcon; }
-//                    |    @NonNull public String[] getColours() { return _colours; }
-//                    |    @NonNull public String toString() { return name().toLowerCase(); }
-//                    |    private static final Map<String, BackendName> BY_DISPLAY_NAME, BY_LOWERCASE;
-//                    |    static {
-//                    |        final Map<String, BackendName> byDisp = new LinkedHashMap<String, BackendName>(), byLower = new LinkedHashMap<String, BackendName>();
-//                    |        for (final BackendName bn : values()) { byDisp.put(bn.getDisplayName(), bn); byLower.put(bn.toString(), bn); }  // no streams until API 24
-//                    |        BY_DISPLAY_NAME = Collections.unmodifiableMap(byDisp);
-//                    |        BY_LOWERCASE = Collections.unmodifiableMap(byLower);
-//                    |    }
-//                    |    @UsedByJNI @Nullable public static BackendName byDisplayName(final String displayName) {
-//                    |        return BY_DISPLAY_NAME.get(displayName);
-//                    |    }
-//                    |    @UsedByJNI @Nullable public static BackendName byLowerCase(final String lowerCase) {
-//                    |        return BY_LOWERCASE.get(lowerCase);
-//                    |    }
-//                    |};
-//                    |""".stripMargin()
-//        }
-//    }
-//    variant.registerJavaGeneratingTask(myTask, sourceDir)
-//}
+task copyTestGames(type: Copy) {
+    from('src/main/jni/icons') {
+        include '*.sav'
+    }
+    into new File(project.buildDir, 'testGames')
+}
+
+// Generate a Java enum of games: really this should use some CMake output instead of the regex
+// hack, but the Android Gradle Plugin wants to compile the Java before running any of the CMake
+project.extensions.findByName("android").applicationVariants.all { variant ->
+    tasks["merge${variant.name.capitalize()}Assets"].dependsOn(copyTestGames)
+    def sourceDir = new File(project.getBuildDir(), "generated/backendsEnum/${variant.name}")
+    def myTask = tasks.register("generate${variant.name.capitalize()}BackendsEnum") {
+        it.inputs.dir('src/main/jni')
+        it.outputs.dir(sourceDir)
+        it.doLast {
+            def backends = new File('app/src/main/jni/CMakeLists.txt').text.findAll(~/puzzle\(\s*(\w+)\s+DISPLAYNAME\s+"([^"]+)"/) { m, puz, display ->
+                def text = new File("app/src/main/jni/${puz}.c").text
+                def match = text =~ /enum\s+\{\s*COL_[^,]+,\s*(COL_[^}]+)}/
+                def colours = []
+                if (match) {
+                    colours = match.group(1).replaceAll(/(?s)\/\*.*?\*\//, "").replaceAll(/#[^\n]*\n/, "")
+                            .trim().split(",")*.trim()*.replaceFirst(/^COL_/, "")*.toLowerCase()
+                            .findAll { it =~ /^[^=]+$/ } - ["ncolours", "crossedline"]
+                    if (colours.any { it =~ /[^a-z0-9_]/ }) {
+                        throw new Exception("Couldn't parse colours for " + puz + ": " + match.group(1) + " -> " + colours)
+                    }
+                }
+                [puz, display, ('new String[]{"' + colours.join('", "') + '"}')] }
+            def out = new File("${it.outputs.files.singleFile}/name/boyle/chris/sgtpuzzles/BackendName.java")
+            out.parentFile.mkdirs()
+            out.delete()
+            out.text = """package name.boyle.chris.sgtpuzzles;
+                    |import java.util.Collections;
+                    |import java.util.LinkedHashMap;
+                    |import java.util.Map;
+                    |import androidx.annotation.DrawableRes;
+                    |import androidx.annotation.NonNull;
+                    |import androidx.annotation.Nullable;
+                    |
+                    |/** Names of all the backends. Automatically generated file, do not modify. */
+                    |public enum BackendName {
+                    |    ${backends.collect {"${it[0].toUpperCase()}(\"${it[1]}\", R.drawable.day_${it[0]}, R.drawable.night_${it[0]}, ${it[2]})"}.join(",\n    ")};
+                    |    private final String _displayName;
+                    |    private final String[] _colours;
+                    |    @DrawableRes private final int _dayIcon, _nightIcon;
+                    |    private BackendName(@NonNull final String displayName, @DrawableRes final int dayIcon, @DrawableRes final int nightIcon, @NonNull final String[] colours) { _displayName = displayName; _dayIcon = dayIcon; _nightIcon = nightIcon; _colours = colours; }
+                    |    @NonNull public String getDisplayName() { return _displayName; }
+                    |    @DrawableRes public int getDayIcon() { return _dayIcon; }
+                    |    @DrawableRes public int getNightIcon() { return _nightIcon; }
+                    |    @NonNull public String[] getColours() { return _colours; }
+                    |    @NonNull public String toString() { return name().toLowerCase(); }
+                    |    private static final Map<String, BackendName> BY_DISPLAY_NAME, BY_LOWERCASE;
+                    |    static {
+                    |        final Map<String, BackendName> byDisp = new LinkedHashMap<String, BackendName>(), byLower = new LinkedHashMap<String, BackendName>();
+                    |        for (final BackendName bn : values()) { byDisp.put(bn.getDisplayName(), bn); byLower.put(bn.toString(), bn); }  // no streams until API 24
+                    |        BY_DISPLAY_NAME = Collections.unmodifiableMap(byDisp);
+                    |        BY_LOWERCASE = Collections.unmodifiableMap(byLower);
+                    |    }
+                    |    @UsedByJNI @Nullable public static BackendName byDisplayName(final String displayName) {
+                    |        return BY_DISPLAY_NAME.get(displayName);
+                    |    }
+                    |    @UsedByJNI @Nullable public static BackendName byLowerCase(final String lowerCase) {
+                    |        return BY_LOWERCASE.get(lowerCase);
+                    |    }
+                    |};
+                    |""".stripMargin()
+        }
+    }
+    variant.registerJavaGeneratingTask(myTask, sourceDir)
+}
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.4.1'

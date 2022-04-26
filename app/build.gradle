@@ -41,7 +41,7 @@ android {
     defaultConfig {
         targetSdkVersion 32
         minSdkVersion 19
-        applicationId "name.boyle.chris.sgtpuzzles"
+        applicationId "name.boyle.chris.sgtpuzzlestest"
         versionCode 125
         versionName timestamp(false)
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'

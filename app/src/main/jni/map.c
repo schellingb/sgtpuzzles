@@ -2605,13 +2605,12 @@ static game_state *execute_move(const game_state *state, const char *move)
 	    move++;
 	    ret->cheated = true;
 	} else if (*move == 'H') {
-	    
-	    for (i = 0; i < n; i++) {
+        move++;
+        for (i = 0; i < n; i++) {
             if (ret->colouring[i] < 0 && ret->pencil[i] == 0) {
                 ret->pencil[i] = (1 << FOUR) - 1;
             }
         }
-
 	} else {
 	    free_game(ret);
 	    return NULL;

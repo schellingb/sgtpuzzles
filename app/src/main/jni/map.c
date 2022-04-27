@@ -2606,10 +2606,31 @@ static game_state *execute_move(const game_state *state, const char *move)
 	    ret->cheated = true;
 	} else if (*move == 'H') {
         move++;
+        /* solve trivial steps (add pencil marks, clear marks by neighbors, fill out regions with just 1 pencil mark remaining) */
         for (i = 0; i < n; i++) {
-            if (ret->colouring[i] < 0 && ret->pencil[i] == 0) {
+            if (ret->colouring[i] < 0 && ret->pencil[i] == 0)
                 ret->pencil[i] = (1 << FOUR) - 1;
-            }
+        }
+        for (i = 0; i < ret->map->ngraph; i++) {
+            int j = ret->map->graph[i] / n;
+            int k = ret->map->graph[i] % n;
+            if (ret->colouring[j] < 0 && ret->colouring[k] >= 0 && (ret->pencil[j] & (1 << ret->colouring[k])))
+                ret->pencil[j] ^= (1 << ret->colouring[k]);
+            if (ret->colouring[k] < 0 && ret->colouring[j] >= 0 && (ret->pencil[k] & (1 << ret->colouring[j])))
+                ret->pencil[k] ^= (1 << ret->colouring[j]);
+        }
+        for (i = 0; i < n; i++) {
+            if (ret->pencil[i] == 1)
+                ret->colouring[i] = 0;
+            else if (ret->pencil[i] == 2)
+                ret->colouring[i] = 1;
+            else if (ret->pencil[i] == 4)
+                ret->colouring[i] = 2;
+            else if (ret->pencil[i] == 8)
+                ret->colouring[i] = 3;
+            else
+                continue;
+            ret->pencil[i] = 0;
         }
 	} else {
 	    free_game(ret);

@@ -3620,8 +3620,8 @@ static key_label *game_request_keys(const game_params *params, int *nkeys, int *
 {
     int i;
     int cr = params->c * params->r;
-    key_label *keys = snewn(cr+2, key_label);
-    *nkeys = cr + 2;
+    key_label *keys = snewn(cr+3, key_label);
+    *nkeys = cr + 3;
     *arrow_mode = ANDROID_ARROWS_LEFT;
 
     for (i = 0; i < cr; i++) {
@@ -3638,6 +3638,10 @@ static key_label *game_request_keys(const game_params *params, int *nkeys, int *
     keys[cr + 1].button = 'M';
     keys[cr + 1].needs_arrows = false;
     keys[cr + 1].label = dupstr("Mark");
+
+    keys[cr + 2].button = 'H';
+    keys[cr + 2].needs_arrows = false;
+    keys[cr + 2].label = dupstr("Solve Trivial Steps");
 
     return keys;
 }
@@ -4760,6 +4764,9 @@ static char *interpret_move(const game_state *state, game_ui *ui,
     if (button == 'M' || button == 'm')
         return dupstr("M");
 
+    if (button == 'H' || button == 'h')
+        return dupstr("H");
+
     return NULL;
 }
 
@@ -4829,6 +4836,48 @@ static game_state *execute_move(const game_state *from, const char *move)
             }
         }
 	return ret;
+    } else if (move[0] == 'H') {
+        ret = dup_game(from);
+        for (y = 0; y < cr; y++) {
+            for (x = 0; x < cr; x++) {
+                int xy = y*cr+x;
+                if (!ret->grid[xy]) {
+                    int i, j, myblock, x2, y2, unique = 0;
+                    bool add_all_pencil = true;
+                    for (i = 0; i < cr; i++)
+                        if (ret->pencil[xy*cr + i])
+                            add_all_pencil = false;
+
+                    for (i = 0; i < cr; i++)
+                        for (j = 0; j < cr; j++)
+                            if (ret->blocks->blocks[i][j] == xy)
+                                myblock = i;
+
+                    for (i = 0; i < cr; i++) {
+                        if (add_all_pencil)
+                            ret->pencil[xy*cr + i] = true;
+                        else if (!ret->pencil[xy*cr + i])
+                            continue;
+                        for (j = 0; j < cr; j++) {
+                            if (ret->grid[y*cr+j] == i+1)
+                                ret->pencil[xy*cr + i] = false;
+                            else if (ret->grid[j*cr+x] == i+1)
+                                ret->pencil[xy*cr + i] = false;
+                            else if (ret->grid[ret->blocks->blocks[myblock][j]] == i+1)
+                                ret->pencil[xy*cr + i] = false;
+                        }
+                        if (ret->pencil[xy*cr + i])
+                            unique = (unique ? -1 : (i + 1));
+                    }
+
+                    if (unique > 0) {
+                        ret->pencil[xy*cr + unique - 1] = false;
+                        ret->grid[xy] = unique;
+                    }
+                }
+            }
+        }
+        return ret;
     } else
 	return NULL;		       /* couldn't parse move string */
 }

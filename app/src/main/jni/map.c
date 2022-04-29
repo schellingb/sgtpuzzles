@@ -1840,7 +1840,7 @@ static key_label *game_request_keys(const game_params *params, int *nkeys, int *
     keys[1].label = dupstr(_("Colours"));
 
     keys[2].button = 'H';
-    keys[2].label = dupstr(_("Mark/Hints"));
+    keys[2].label = dupstr(_("Solve Trivial Steps"));
     keys[2].needs_arrows = false;
 
     return keys;

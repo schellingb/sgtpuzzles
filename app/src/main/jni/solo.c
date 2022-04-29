@@ -4837,6 +4837,7 @@ static game_state *execute_move(const game_state *from, const char *move)
         }
 	return ret;
     } else if (move[0] == 'H') {
+        bool check_complete = false;
         ret = dup_game(from);
         for (y = 0; y < cr; y++) {
             for (x = 0; x < cr; x++) {
@@ -4873,9 +4874,16 @@ static game_state *execute_move(const game_state *from, const char *move)
                     if (unique > 0) {
                         ret->pencil[xy*cr + unique - 1] = false;
                         ret->grid[xy] = unique;
+                        check_complete = true;
                     }
                 }
             }
+        }
+
+        if (check_complete && !ret->completed && check_valid(
+                cr, ret->blocks, ret->kblocks, ret->kgrid,
+                ret->xtype, ret->grid)) {
+            ret->completed = true;
         }
         return ret;
     } else

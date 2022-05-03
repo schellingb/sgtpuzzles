@@ -5269,9 +5269,9 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 	    /*
 	     * Now actually draw the pencil marks.
 	     */
-	    for (i = j = 0; i < cr; i++)
+	    for (i = 0; i < cr; i++)
 		if (state->pencil[(y*cr+x)*cr+i]) {
-		    int dx = j % pw, dy = j / pw;
+		    int dx = i % pw, dy = i / pw;
 
 		    str[1] = '\0';
 		    str[0] = i + '1';
@@ -5282,7 +5282,6 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 			      FONT_VARIABLE, fontsize,
 			      ALIGN_VCENTRE | ALIGN_HCENTRE,
                   glow == i + 1 ? COL_GLOW : COL_PENCIL, str);
-		    j++;
 		}
 	}
     }

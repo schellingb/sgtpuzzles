@@ -134,6 +134,7 @@ enum {
     COL_ERROR,
     COL_PENCIL,
     COL_KILLER,
+    COL_GLOW,
     NCOLOURS
 };
 
@@ -4565,6 +4566,10 @@ struct game_ui {
      * allowed on immutable squares.
      */
     bool hcursor;
+    /*
+     * Glow color
+     */ 
+    int glow;
 };
 
 static game_ui *new_ui(const game_state *state)
@@ -4580,6 +4585,7 @@ static game_ui *new_ui(const game_state *state)
 #else
         false;
 #endif
+    ui->glow = 0;
 
     return ui;
 }
@@ -4726,7 +4732,7 @@ static char *interpret_move(const game_state *state, game_ui *ui,
         return UI_UPDATE;
     }
 
-    if (ui->hshow &&
+    if (
 	((button >= '0' && button <= '9' && button - '0' <= cr) ||
 	 (button >= 'a' && button <= 'z' && button - 'a' + 10 <= cr) ||
 	 (button >= 'A' && button <= 'Z' && button - 'A' + 10 <= cr) ||
@@ -4740,11 +4746,16 @@ static char *interpret_move(const game_state *state, game_ui *ui,
 	    n = 0;
 
         /*
-         * Can't overwrite this square. This can only happen here
-         * if we're using the cursor keys.
+         * No cursor visible or immutable square (can only happen here
+         * if we're using the cursor keys).
          */
-	if (state->immutable[ui->hy*cr+ui->hx])
-	    return NULL;
+        if (!ui->hshow || state->immutable[ui->hy*cr+ui->hx]) {
+            if (ui->glow == n)
+                ui->glow = 0;
+            else
+                ui->glow = n;
+            return UI_UPDATE;
+        }
 
         /*
          * Can't make pencil marks in a filled square. Again, this
@@ -4956,6 +4967,10 @@ static float *game_colours(frontend *fe, int *ncolours)
     ret[COL_KILLER * 3 + 1] = 0.5F * ret[COL_BACKGROUND * 3 + 1];
     ret[COL_KILLER * 3 + 2] = 0.1F * ret[COL_BACKGROUND * 3 + 2];
 
+    ret[COL_GLOW * 3 + 0] = 0.1F;
+    ret[COL_GLOW * 3 + 1] = 0.8F;
+    ret[COL_GLOW * 3 + 2] = 0.8F;
+
     *ncolours = NCOLOURS;
     return ret;
 }
@@ -4997,7 +5012,7 @@ static void game_free_drawstate(drawing *dr, game_drawstate *ds)
 }
 
 static void draw_number(drawing *dr, game_drawstate *ds,
-                        const game_state *state, int x, int y, int hl)
+                        const game_state *state, int x, int y, int hl, int glow)
 {
     int cr = state->cr;
     int tx, ty, tw, th;
@@ -5159,6 +5174,7 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 	    str[0] += 'a' - ('9'+1);
 	draw_text(dr, tx + TILE_SIZE/2, ty + TILE_SIZE/2,
 		  FONT_VARIABLE, TILE_SIZE/2, ALIGN_VCENTRE | ALIGN_HCENTRE,
+		  glow == state->grid[y*cr+x] ? COL_GLOW :
 		  state->immutable[y*cr+x] ? COL_CLUE : (hl & 16) ? COL_ERROR : COL_USER, str);
     } else {
         int i, j, npencil;
@@ -5264,7 +5280,8 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 		    draw_text(dr, pl + fontsize * (2*dx+1) / 2,
 			      pt + fontsize * (2*dy+1) / 2,
 			      FONT_VARIABLE, fontsize,
-			      ALIGN_VCENTRE | ALIGN_HCENTRE, COL_PENCIL, str);
+			      ALIGN_VCENTRE | ALIGN_HCENTRE,
+                  glow == i + 1 ? COL_GLOW : COL_PENCIL, str);
 		    j++;
 		}
 	}
@@ -5385,7 +5402,7 @@ static void game_redraw(drawing *dr, game_drawstate *ds,
                     highlight |= 32;
 	    }
 
-	    draw_number(dr, ds, state, x, y, highlight);
+	    draw_number(dr, ds, state, x, y, highlight, ui->glow);
 	}
     }
 

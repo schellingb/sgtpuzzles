@@ -135,6 +135,7 @@ enum {
     COL_PENCIL,
     COL_KILLER,
     COL_GLOW,
+    COL_GLOWBG,
     NCOLOURS
 };
 
@@ -4972,6 +4973,10 @@ static float *game_colours(frontend *fe, int *ncolours)
     ret[COL_GLOW * 3 + 1] = 0.1F;
     ret[COL_GLOW * 3 + 2] = 0.7F;
 
+    ret[COL_GLOWBG * 3 + 0] = 0.5F * ret[COL_BACKGROUND * 3 + 0];
+    ret[COL_GLOWBG * 3 + 1] = 0.1F * ret[COL_BACKGROUND * 3 + 1];
+    ret[COL_GLOWBG * 3 + 2] = 0.5F * ret[COL_BACKGROUND * 3 + 2];
+
     *ncolours = NCOLOURS;
     return ret;
 }
@@ -5050,6 +5055,7 @@ static void draw_number(drawing *dr, game_drawstate *ds,
     /* background needs erasing */
     draw_rect(dr, cx, cy, cw, ch,
 	      ((hl & 15) == 1 ? COL_HIGHLIGHT :
+	       (glow && (state->grid[y*cr+x] == glow || state->pencil[(y*cr+x)*cr+(glow-1)])) ? COL_GLOWBG :
 	       (ds->xtype && (ondiag0(y*cr+x) || ondiag1(y*cr+x))) ? COL_XDIAGONALS :
 	       COL_BACKGROUND));
 

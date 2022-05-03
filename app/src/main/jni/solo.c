@@ -5218,6 +5218,14 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 	    }
 
 	    /*
+	     * Fix position of particular pencil number
+	     * TODO: make this an option
+	     */
+	    bool fix_pencil_pos = true;
+	    if (fix_pencil_pos)
+	        npencil = cr;
+
+	    /*
 	     * We arrange our pencil marks in a grid layout, with
 	     * the number of rows and columns adjusted to allow the
 	     * maximum font size.
@@ -5269,9 +5277,12 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 	    /*
 	     * Now actually draw the pencil marks.
 	     */
-	    for (i = 0; i < cr; i++)
+	    for (i = j = 0; i < cr; i++)
 		if (state->pencil[(y*cr+x)*cr+i]) {
-		    int dx = i % pw, dy = i / pw;
+		    if (fix_pencil_pos)
+		        j = i;
+
+		    int dx = j % pw, dy = j / pw;
 
 		    str[1] = '\0';
 		    str[0] = i + '1';
@@ -5281,7 +5292,8 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 			      pt + fontsize * (2*dy+1) / 2,
 			      FONT_VARIABLE, fontsize,
 			      ALIGN_VCENTRE | ALIGN_HCENTRE,
-                  glow == i + 1 ? COL_GLOW : COL_PENCIL, str);
+			      glow == i + 1 ? COL_GLOW : COL_PENCIL, str);
+		    j++;
 		}
 	}
     }

@@ -4567,7 +4567,7 @@ struct game_ui {
      */
     bool hcursor;
     /*
-     * Glow color
+     * If set, make all numbers of this value glow
      */ 
     int glow;
 };
@@ -4640,6 +4640,7 @@ struct game_drawstate {
     unsigned char *hl;
     /* This is scratch space used within a single call to game_redraw. */
     int nregions, *entered_items;
+    int lastglow;
 };
 
 static char *interpret_move(const game_state *state, game_ui *ui,
@@ -4967,9 +4968,9 @@ static float *game_colours(frontend *fe, int *ncolours)
     ret[COL_KILLER * 3 + 1] = 0.5F * ret[COL_BACKGROUND * 3 + 1];
     ret[COL_KILLER * 3 + 2] = 0.1F * ret[COL_BACKGROUND * 3 + 2];
 
-    ret[COL_GLOW * 3 + 0] = 0.1F;
-    ret[COL_GLOW * 3 + 1] = 0.8F;
-    ret[COL_GLOW * 3 + 2] = 0.8F;
+    ret[COL_GLOW * 3 + 0] = 0.7F;
+    ret[COL_GLOW * 3 + 1] = 0.1F;
+    ret[COL_GLOW * 3 + 2] = 0.7F;
 
     *ncolours = NCOLOURS;
     return ret;
@@ -4999,6 +5000,7 @@ static game_drawstate *game_new_drawstate(drawing *dr, const game_state *state)
 	ds->nregions += state->kblocks->nr_blocks;
     ds->entered_items = snewn(cr * ds->nregions, int);
     ds->tilesize = 0;                  /* not decided yet */
+    ds->lastglow = 0;
     return ds;
 }
 
@@ -5022,6 +5024,7 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 
     if (ds->grid[y*cr+x] == state->grid[y*cr+x] &&
         ds->hl[y*cr+x] == hl &&
+        ds->lastglow == glow &&
         !memcmp(ds->pencil+(y*cr+x)*cr, state->pencil+(y*cr+x)*cr, cr))
 	return;			       /* no change required */
 
@@ -5416,6 +5419,7 @@ static void game_redraw(drawing *dr, game_drawstate *ds,
 	    draw_number(dr, ds, state, x, y, highlight, ui->glow);
 	}
     }
+    ds->lastglow = ui->glow;
 
     /*
      * Update the _entire_ grid if necessary.

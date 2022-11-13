@@ -90,6 +90,7 @@ enum {
     COL_CURSOR, COL_DOMINOCURSOR,
     COL_HIGHLIGHT_1,
     COL_HIGHLIGHT_2,
+    COL_DOMINOHIGHLIGHT,
     NCOLOURS
 };
 
@@ -2465,7 +2466,7 @@ static key_label *game_request_keys(const game_params *params, int *nkeys, int *
 {
     int i;
     int nOr9 = min(params->n, 9);
-    key_label *keys = snewn(nOr9 + 1, key_label);
+    key_label *keys = snewn(nOr9 + 2, key_label);
     *nkeys = nOr9 + 1;
     *arrow_mode = ANDROID_ARROWS_LEFT_RIGHT;
 
@@ -2474,6 +2475,10 @@ static key_label *game_request_keys(const game_params *params, int *nkeys, int *
         keys[i].label = NULL;
         keys[i].needs_arrows = false;
     }
+
+    keys[nOr9 + 1].button = 'H';
+    keys[nOr9 + 1].label = dupstr(_("Solve Trivial Steps"));
+    keys[nOr9 + 1].needs_arrows = false;
 
     return keys;
 }
@@ -2860,7 +2865,8 @@ static char *interpret_move(const game_state *state, game_ui *ui,
             return NULL;
         }
         return UI_UPDATE;
-    }
+    } else if (button == 'H')
+        return dupstr("H");
 
     return NULL;
 }
@@ -2970,6 +2976,55 @@ static game_state *execute_move(const game_state *state, const char *move)
             }
 
             move += p+1;
+        } else if (*move == 'H') {
+            /* Solve trivial steps (place any dominoes that have a unique pair, add edges for any already placed dominoes). */
+            int i, wh2 = wh*2, neighbors[2] = {1, w};
+            bool *used = snewn(TRI(n+1), bool);
+            memset(used, 0, TRI(n+1));
+            for (i = 0; i < wh; i++)
+                if (ret->grid[i] > i)
+                    used[DINDEX(ret->numbers->numbers[i], ret->numbers->numbers[ret->grid[i]])] = true;
+
+            for (i = 0; i < wh2; i++) {
+                int id1 = i/2, idn = neighbors[i%2], id2 = id1 + idn, idi, j;
+                if (id2 >= wh || ret->grid[id1] != id1 || ret->grid[id2] != id2)
+                    continue;
+                idi = DINDEX(ret->numbers->numbers[id1], ret->numbers->numbers[id2]);
+
+                if (!used[idi]) {
+                    /* Check if this is a unique number pairing. */
+                    for (j = 0; j < wh2; j++) {
+                        int jd1 = j/2, jd2 = jd1 + neighbors[j%2], jdi;
+                        if (jd2 >= wh || j == i)
+                            continue;
+                        if (idi == DINDEX(ret->numbers->numbers[jd1], ret->numbers->numbers[jd2]))
+                            break;
+                    }
+                    if (j == wh2) {
+                        /* It's unique, place the domino. */
+                        ret->grid[id1] = id2;
+                        ret->grid[id2] = id1;
+                        /* Destroy any edges lurking around it. */
+                        if (ret->edges[d1] & EDGE_L) ret->edges[d1 - 1] &= ~EDGE_R;
+                        if (ret->edges[d1] & EDGE_R) ret->edges[d1 + 1] &= ~EDGE_L;
+                        if (ret->edges[d1] & EDGE_T) ret->edges[d1 - w] &= ~EDGE_B;
+                        if (ret->edges[d1] & EDGE_B) ret->edges[d1 + w] &= ~EDGE_T;
+                        ret->edges[d1] = 0;
+                        if (ret->edges[d2] & EDGE_L) ret->edges[d2 - 1] &= ~EDGE_R;
+                        if (ret->edges[d2] & EDGE_R) ret->edges[d2 + 1] &= ~EDGE_L;
+                        if (ret->edges[d2] & EDGE_T) ret->edges[d2 - w] &= ~EDGE_B;
+                        if (ret->edges[d2] & EDGE_B) ret->edges[d2 + w] &= ~EDGE_T;
+                        ret->edges[d2] = 0;
+                    }
+                } else if (!(ret->edges[id1] & (idn == 1 ? EDGE_R : EDGE_B))) {
+                    /* This number pair has a placed domino, add edges between. */
+                    ret->edges[id1] |= (idn == 1 ? EDGE_R : EDGE_B);
+                    ret->edges[id2] |= (idn == 1 ? EDGE_L : EDGE_T);
+                }
+            }
+            sfree(used);
+
+            move++;
         } else {
             free_game(ret);
             return NULL;
@@ -3083,6 +3138,10 @@ static float *game_colours(frontend *fe, int *ncolours)
     ret[COL_HIGHLIGHT_2 * 3 + 1] = 0.65;
     ret[COL_HIGHLIGHT_2 * 3 + 2] = 0.12;
 
+    ret[COL_DOMINOHIGHLIGHT * 3 + 0] = 0.65;
+    ret[COL_DOMINOHIGHLIGHT * 3 + 1] = 0.20;
+    ret[COL_DOMINOHIGHLIGHT * 3 + 2] = 0.65;
+
     *ncolours = NCOLOURS;
     return ret;
 }
@@ -3126,6 +3185,7 @@ enum {
 #define DF_HIGHLIGHT_2  0x20
 #define DF_FLASH        0x40
 #define DF_CLASH        0x80
+#define DF_DOMINOHIGHLIGHT 0x100000
 
 #define DF_CURSOR        0x01000
 #define DF_CURSOR_USEFUL 0x02000
@@ -3165,6 +3225,8 @@ static void draw_tile(drawing *dr, game_drawstate *ds, const game_state *state,
 
         if (flags & DF_CLASH)
             bg = COL_DOMINOCLASH;
+        else if (flags & DF_DOMINOHIGHLIGHT)
+            bg = COL_DOMINOHIGHLIGHT;
         else
             bg = COL_DOMINO;
         nc = COL_DOMINOTEXT;
@@ -3301,6 +3363,10 @@ static void game_redraw(drawing *dr, game_drawstate *ds,
                 di = DINDEX(n1, n2);
                 if (used[di] > 1)
                     c |= DF_CLASH;         /* highlight a clash */
+                else if (n1 == ui->highlight_1 && n2 == ui->highlight_2)
+                    c |= DF_DOMINOHIGHLIGHT;
+                else if (n1 == ui->highlight_2 && n2 == ui->highlight_1)
+                    c |= DF_DOMINOHIGHLIGHT;
             } else {
                 c |= state->edges[n];
             }

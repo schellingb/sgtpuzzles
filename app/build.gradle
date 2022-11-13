@@ -9,22 +9,22 @@ static def timestamp(boolean time) {
 }
 
 def idForSimon() {
-    try {
-        def commit = new ByteArrayOutputStream()
-        exec {
-            // Require remote called simon because someone downstream might call my branch "upstream"
-            commandLine 'git', 'merge-base', 'simon/main', 'main'
-            standardOutput = commit
-        }
-        def shortUnique = new ByteArrayOutputStream()
-        exec {
-            commandLine 'git', 'rev-parse', '--short', commit.toString().trim()
-            standardOutput = shortUnique
-        }
-        return shortUnique.toString().trim()
-    } catch (ignored) {
+    // try {
+    //     def commit = new ByteArrayOutputStream()
+    //     exec {
+    //         // Require remote called simon because someone downstream might call my branch "upstream"
+    //         commandLine 'git', 'merge-base', 'simon/main', 'main'
+    //         standardOutput = commit
+    //     }
+    //     def shortUnique = new ByteArrayOutputStream()
+    //     exec {
+    //         commandLine 'git', 'rev-parse', '--short', commit.toString().trim()
+    //         standardOutput = shortUnique
+    //     }
+    //     return shortUnique.toString().trim()
+    // } catch (ignored) {
         return "UNOFFICIAL"
-    }
+    // }
 }
 
 def issuesURL() {
@@ -42,7 +42,7 @@ android {
     defaultConfig {
         targetSdkVersion 32
         minSdkVersion 19
-        applicationId "name.boyle.chris.sgtpuzzles"
+        applicationId "name.boyle.chris.sgtpuzzlestest"
         versionCode 133
         versionName timestamp(false)
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
@@ -75,10 +75,10 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
-    }
+    // compileOptions {
+    //     sourceCompatibility JavaVersion.VERSION_11
+    //     targetCompatibility JavaVersion.VERSION_11
+    // }
     packagingOptions {
         jniLibs {
             useLegacyPackaging = true

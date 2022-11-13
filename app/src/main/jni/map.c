@@ -1827,8 +1827,8 @@ static const char *validate_desc(const game_params *params, const char *desc)
 
 static key_label *game_request_keys(const game_params *params, int *nkeys, int *arrow_mode)
 {
-    key_label *keys = snewn(2, key_label);
-    *nkeys = 2;
+    key_label *keys = snewn(3, key_label);
+    *nkeys = 3;
     *arrow_mode = ANDROID_ARROWS_LEFT_RIGHT;
 
     keys[0].button = 'L';
@@ -1838,6 +1838,10 @@ static key_label *game_request_keys(const game_params *params, int *nkeys, int *
     keys[1].button = 'C';
     keys[1].needs_arrows = false;
     keys[1].label = dupstr(_("Colours"));
+
+    keys[2].button = 'H';
+    keys[2].label = dupstr(_("Solve Trivial Steps"));
+    keys[2].needs_arrows = false;
 
     return keys;
 }
@@ -2442,6 +2446,9 @@ static char *interpret_move(const game_state *state, game_ui *ui,
         return UI_UPDATE;
     }
 
+    if (button == 'H')
+        return dupstr("H");
+
     if (IS_CURSOR_MOVE(button)) {
         move_cursor(button, &ui->cur_x, &ui->cur_y, state->p.w, state->p.h,
                     false);
@@ -2595,6 +2602,34 @@ static game_state *execute_move(const game_state *state, const char *move)
 	} else if (*move == 'S') {
 	    move++;
 	    ret->cheated = true;
+	} else if (*move == 'H') {
+	    move++;
+	    /* solve trivial steps (add pencil marks, clear marks by neighbors, fill out regions with just 1 pencil mark remaining) */
+	    for (i = 0; i < n; i++) {
+	        if (ret->colouring[i] < 0 && ret->pencil[i] == 0)
+	            ret->pencil[i] = (1 << FOUR) - 1;
+	    }
+	    for (i = 0; i < ret->map->ngraph; i++) {
+	        int j = ret->map->graph[i] / n;
+	        int k = ret->map->graph[i] % n;
+	        if (ret->colouring[j] < 0 && ret->colouring[k] >= 0 && (ret->pencil[j] & (1 << ret->colouring[k])))
+	            ret->pencil[j] ^= (1 << ret->colouring[k]);
+	        if (ret->colouring[k] < 0 && ret->colouring[j] >= 0 && (ret->pencil[k] & (1 << ret->colouring[j])))
+	            ret->pencil[k] ^= (1 << ret->colouring[j]);
+	    }
+	    for (i = 0; i < n; i++) {
+	        if (ret->pencil[i] == 1)
+	            ret->colouring[i] = 0;
+	        else if (ret->pencil[i] == 2)
+	            ret->colouring[i] = 1;
+	        else if (ret->pencil[i] == 4)
+	            ret->colouring[i] = 2;
+	        else if (ret->pencil[i] == 8)
+	            ret->colouring[i] = 3;
+	        else
+	            continue;
+	        ret->pencil[i] = 0;
+	    }
 	} else {
 	    free_game(ret);
 	    return NULL;

@@ -2821,8 +2821,8 @@ static char *interpret_move(const game_state *state, game_ui *ui,
          */
         if (button == RIGHT_BUTTON &&
             (state->grid[d1] == d2 || state->grid[d2] == d1)) {
-            ui->highlight_1 = ret->numbers->numbers[d1];
-            ui->highlight_2 = (ret->numbers->numbers[d2] == ui->highlight_1 ? -1 : ret->numbers->numbers[d2]);
+            ui->highlight_1 = state->numbers->numbers[d1];
+            ui->highlight_2 = (state->numbers->numbers[d2] == ui->highlight_1 ? -1 : state->numbers->numbers[d2]);
         }
 
         /*

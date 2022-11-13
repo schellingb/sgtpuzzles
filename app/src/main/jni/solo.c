@@ -3624,8 +3624,6 @@ static key_label *game_request_keys(const game_params *params, int *nkeys, int *
     int cr = params->c * params->r;
     key_label *keys = snewn(cr+3, key_label);
     *nkeys = cr + 3;
-    key_label *keys = snewn(cr+2, key_label);
-    *nkeys = cr + 2;
     *arrow_mode = ANDROID_ARROWS_LEFT;
 
     for (i = 0; i < cr; i++) {

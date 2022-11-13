@@ -2823,6 +2823,7 @@ static char *interpret_move(const game_state *state, game_ui *ui,
             (state->grid[d1] == d2 || state->grid[d2] == d1)) {
             ui->highlight_1 = state->numbers->numbers[d1];
             ui->highlight_2 = (state->numbers->numbers[d2] == ui->highlight_1 ? -1 : state->numbers->numbers[d2]);
+            return UI_UPDATE;
         }
 
         /*
@@ -3014,16 +3015,16 @@ static game_state *execute_move(const game_state *state, const char *move)
                         ret->grid[id1] = id2;
                         ret->grid[id2] = id1;
                         /* Destroy any edges lurking around it. */
-                        if (ret->edges[d1] & EDGE_L) ret->edges[d1 - 1] &= ~EDGE_R;
-                        if (ret->edges[d1] & EDGE_R) ret->edges[d1 + 1] &= ~EDGE_L;
-                        if (ret->edges[d1] & EDGE_T) ret->edges[d1 - w] &= ~EDGE_B;
-                        if (ret->edges[d1] & EDGE_B) ret->edges[d1 + w] &= ~EDGE_T;
-                        ret->edges[d1] = 0;
-                        if (ret->edges[d2] & EDGE_L) ret->edges[d2 - 1] &= ~EDGE_R;
-                        if (ret->edges[d2] & EDGE_R) ret->edges[d2 + 1] &= ~EDGE_L;
-                        if (ret->edges[d2] & EDGE_T) ret->edges[d2 - w] &= ~EDGE_B;
-                        if (ret->edges[d2] & EDGE_B) ret->edges[d2 + w] &= ~EDGE_T;
-                        ret->edges[d2] = 0;
+                        if (ret->edges[id1] & EDGE_L) ret->edges[id1 - 1] &= ~EDGE_R;
+                        if (ret->edges[id1] & EDGE_R) ret->edges[id1 + 1] &= ~EDGE_L;
+                        if (ret->edges[id1] & EDGE_T) ret->edges[id1 - w] &= ~EDGE_B;
+                        if (ret->edges[id1] & EDGE_B) ret->edges[id1 + w] &= ~EDGE_T;
+                        ret->edges[id1] = 0;
+                        if (ret->edges[id2] & EDGE_L) ret->edges[id2 - 1] &= ~EDGE_R;
+                        if (ret->edges[id2] & EDGE_R) ret->edges[id2 + 1] &= ~EDGE_L;
+                        if (ret->edges[id2] & EDGE_T) ret->edges[id2 - w] &= ~EDGE_B;
+                        if (ret->edges[id2] & EDGE_B) ret->edges[id2 + w] &= ~EDGE_T;
+                        ret->edges[id2] = 0;
                     }
                 } else if (!(ret->edges[id1] & (idn == 1 ? EDGE_R : EDGE_B))) {
                     /* This number pair has a placed domino, add edges between. */

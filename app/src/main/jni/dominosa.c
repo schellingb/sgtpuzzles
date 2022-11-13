@@ -2467,7 +2467,7 @@ static key_label *game_request_keys(const game_params *params, int *nkeys, int *
     int i;
     int nOr9 = min(params->n, 9);
     key_label *keys = snewn(nOr9 + 2, key_label);
-    *nkeys = nOr9 + 1;
+    *nkeys = nOr9 + 2;
     *arrow_mode = ANDROID_ARROWS_LEFT_RIGHT;
 
     for (i = 0; i <= nOr9; i++) {
@@ -2817,6 +2817,15 @@ static char *interpret_move(const game_state *state, game_ui *ui,
             return NULL;
 
         /*
+         * Right clicking a domino will switch the highlight to it.
+         */
+        if (button == RIGHT_BUTTON &&
+            (state->grid[d1] == d2 || state->grid[d2] == d1)) {
+            ui->highlight_1 = ret->numbers->numbers[d1];
+            ui->highlight_2 = (ret->numbers->numbers[d2] == ui->highlight_1 ? -1 : ret->numbers->numbers[d2]);
+        }
+
+        /*
          * We can't mark an edge next to any domino.
          */
         if (button == RIGHT_BUTTON &&
@@ -3138,9 +3147,9 @@ static float *game_colours(frontend *fe, int *ncolours)
     ret[COL_HIGHLIGHT_2 * 3 + 1] = 0.65;
     ret[COL_HIGHLIGHT_2 * 3 + 2] = 0.12;
 
-    ret[COL_DOMINOHIGHLIGHT * 3 + 0] = 0.65;
-    ret[COL_DOMINOHIGHLIGHT * 3 + 1] = 0.20;
-    ret[COL_DOMINOHIGHLIGHT * 3 + 2] = 0.65;
+    ret[COL_DOMINOHIGHLIGHT * 3 + 0] = 0.55;
+    ret[COL_DOMINOHIGHLIGHT * 3 + 1] = 0.12;
+    ret[COL_DOMINOHIGHLIGHT * 3 + 2] = 0.55;
 
     *ncolours = NCOLOURS;
     return ret;
@@ -3366,6 +3375,10 @@ static void game_redraw(drawing *dr, game_drawstate *ds,
                 else if (n1 == ui->highlight_1 && n2 == ui->highlight_2)
                     c |= DF_DOMINOHIGHLIGHT;
                 else if (n1 == ui->highlight_2 && n2 == ui->highlight_1)
+                    c |= DF_DOMINOHIGHLIGHT;
+                else if (n1 == ui->highlight_1 && n2 == ui->highlight_1 && ui->highlight_2 == -1)
+                    c |= DF_DOMINOHIGHLIGHT;
+                else if (n1 == ui->highlight_2 && n2 == ui->highlight_2 && ui->highlight_1 == -1)
                     c |= DF_DOMINOHIGHLIGHT;
             } else {
                 c |= state->edges[n];

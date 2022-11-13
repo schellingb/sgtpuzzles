@@ -134,6 +134,8 @@ enum {
     COL_ERROR,
     COL_PENCIL,
     COL_KILLER,
+    COL_GLOW,
+    COL_GLOWBG,
     NCOLOURS
 };
 
@@ -3620,6 +3622,8 @@ static key_label *game_request_keys(const game_params *params, int *nkeys, int *
 {
     int i;
     int cr = params->c * params->r;
+    key_label *keys = snewn(cr+3, key_label);
+    *nkeys = cr + 3;
     key_label *keys = snewn(cr+2, key_label);
     *nkeys = cr + 2;
     *arrow_mode = ANDROID_ARROWS_LEFT;
@@ -3638,6 +3642,10 @@ static key_label *game_request_keys(const game_params *params, int *nkeys, int *
     keys[cr + 1].button = 'M';
     keys[cr + 1].needs_arrows = false;
     keys[cr + 1].label = dupstr("Mark");
+
+    keys[cr + 2].button = 'H';
+    keys[cr + 2].needs_arrows = false;
+    keys[cr + 2].label = dupstr("Solve Trivial Steps");
 
     return keys;
 }
@@ -4561,6 +4569,10 @@ struct game_ui {
      * allowed on immutable squares.
      */
     bool hcursor;
+    /*
+     * If set, make all numbers of this value glow
+     */ 
+    int glow;
 };
 
 static game_ui *new_ui(const game_state *state)
@@ -4576,6 +4588,7 @@ static game_ui *new_ui(const game_state *state)
 #else
         false;
 #endif
+    ui->glow = 0;
 
     return ui;
 }
@@ -4629,6 +4642,7 @@ struct game_drawstate {
     unsigned char *hl;
     /* This is scratch space used within a single call to game_redraw. */
     int nregions, *entered_items;
+    int lastglow;
 };
 
 static char *interpret_move(const game_state *state, game_ui *ui,
@@ -4721,7 +4735,7 @@ static char *interpret_move(const game_state *state, game_ui *ui,
         return UI_UPDATE;
     }
 
-    if (ui->hshow &&
+    if (
 	((button >= '0' && button <= '9' && button - '0' <= cr) ||
 	 (button >= 'a' && button <= 'z' && button - 'a' + 10 <= cr) ||
 	 (button >= 'A' && button <= 'Z' && button - 'A' + 10 <= cr) ||
@@ -4735,11 +4749,16 @@ static char *interpret_move(const game_state *state, game_ui *ui,
 	    n = 0;
 
         /*
-         * Can't overwrite this square. This can only happen here
-         * if we're using the cursor keys.
+         * No cursor visible or immutable square (can only happen here
+         * if we're using the cursor keys).
          */
-	if (state->immutable[ui->hy*cr+ui->hx])
-	    return NULL;
+        if (!ui->hshow || state->immutable[ui->hy*cr+ui->hx]) {
+            if (ui->glow == n)
+                ui->glow = 0;
+            else
+                ui->glow = n;
+            return UI_UPDATE;
+        }
 
         /*
          * Can't make pencil marks in a filled square. Again, this
@@ -4758,6 +4777,9 @@ static char *interpret_move(const game_state *state, game_ui *ui,
 
     if (button == 'M' || button == 'm')
         return dupstr("M");
+
+    if (button == 'H' || button == 'h')
+        return dupstr("H");
 
     return NULL;
 }
@@ -4828,6 +4850,56 @@ static game_state *execute_move(const game_state *from, const char *move)
             }
         }
 	return ret;
+    } else if (move[0] == 'H') {
+        bool check_complete = false;
+        ret = dup_game(from);
+        for (y = 0; y < cr; y++) {
+            for (x = 0; x < cr; x++) {
+                int xy = y*cr+x;
+                if (!ret->grid[xy]) {
+                    int i, j, myblock, x2, y2, unique = 0;
+                    bool add_all_pencil = true;
+                    for (i = 0; i < cr; i++)
+                        if (ret->pencil[xy*cr + i])
+                            add_all_pencil = false;
+
+                    for (i = 0; i < cr; i++)
+                        for (j = 0; j < cr; j++)
+                            if (ret->blocks->blocks[i][j] == xy)
+                                myblock = i;
+
+                    for (i = 0; i < cr; i++) {
+                        if (add_all_pencil)
+                            ret->pencil[xy*cr + i] = true;
+                        else if (!ret->pencil[xy*cr + i])
+                            continue;
+                        for (j = 0; j < cr; j++) {
+                            if (ret->grid[y*cr+j] == i+1)
+                                ret->pencil[xy*cr + i] = false;
+                            else if (ret->grid[j*cr+x] == i+1)
+                                ret->pencil[xy*cr + i] = false;
+                            else if (ret->grid[ret->blocks->blocks[myblock][j]] == i+1)
+                                ret->pencil[xy*cr + i] = false;
+                        }
+                        if (ret->pencil[xy*cr + i])
+                            unique = (unique ? -1 : (i + 1));
+                    }
+
+                    if (unique > 0) {
+                        ret->pencil[xy*cr + unique - 1] = false;
+                        ret->grid[xy] = unique;
+                        check_complete = true;
+                    }
+                }
+            }
+        }
+
+        if (check_complete && !ret->completed && check_valid(
+                cr, ret->blocks, ret->kblocks, ret->kgrid,
+                ret->xtype, ret->grid)) {
+            ret->completed = true;
+        }
+        return ret;
     } else
 	return NULL;		       /* couldn't parse move string */
 }
@@ -4898,6 +4970,14 @@ static float *game_colours(frontend *fe, int *ncolours)
     ret[COL_KILLER * 3 + 1] = 0.5F * ret[COL_BACKGROUND * 3 + 1];
     ret[COL_KILLER * 3 + 2] = 0.1F * ret[COL_BACKGROUND * 3 + 2];
 
+    ret[COL_GLOW * 3 + 0] = 0.7F;
+    ret[COL_GLOW * 3 + 1] = 0.1F;
+    ret[COL_GLOW * 3 + 2] = 0.7F;
+
+    ret[COL_GLOWBG * 3 + 0] = 0.5F * ret[COL_BACKGROUND * 3 + 0];
+    ret[COL_GLOWBG * 3 + 1] = 0.1F * ret[COL_BACKGROUND * 3 + 1];
+    ret[COL_GLOWBG * 3 + 2] = 0.5F * ret[COL_BACKGROUND * 3 + 2];
+
     *ncolours = NCOLOURS;
     return ret;
 }
@@ -4926,6 +5006,7 @@ static game_drawstate *game_new_drawstate(drawing *dr, const game_state *state)
 	ds->nregions += state->kblocks->nr_blocks;
     ds->entered_items = snewn(cr * ds->nregions, int);
     ds->tilesize = 0;                  /* not decided yet */
+    ds->lastglow = 0;
     return ds;
 }
 
@@ -4939,7 +5020,7 @@ static void game_free_drawstate(drawing *dr, game_drawstate *ds)
 }
 
 static void draw_number(drawing *dr, game_drawstate *ds,
-                        const game_state *state, int x, int y, int hl)
+                        const game_state *state, int x, int y, int hl, int glow)
 {
     int cr = state->cr;
     int tx, ty, tw, th;
@@ -4949,6 +5030,7 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 
     if (ds->grid[y*cr+x] == state->grid[y*cr+x] &&
         ds->hl[y*cr+x] == hl &&
+        ds->lastglow == glow &&
         !memcmp(ds->pencil+(y*cr+x)*cr, state->pencil+(y*cr+x)*cr, cr))
 	return;			       /* no change required */
 
@@ -4974,6 +5056,7 @@ static void draw_number(drawing *dr, game_drawstate *ds,
     /* background needs erasing */
     draw_rect(dr, cx, cy, cw, ch,
 	      ((hl & 15) == 1 ? COL_HIGHLIGHT :
+	       (glow && (state->grid[y*cr+x] == glow || state->pencil[(y*cr+x)*cr+(glow-1)])) ? COL_GLOWBG :
 	       (ds->xtype && (ondiag0(y*cr+x) || ondiag1(y*cr+x))) ? COL_XDIAGONALS :
 	       COL_BACKGROUND));
 
@@ -5101,6 +5184,7 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 	    str[0] += 'a' - ('9'+1);
 	draw_text(dr, tx + TILE_SIZE/2, ty + TILE_SIZE/2,
 		  FONT_VARIABLE, TILE_SIZE/2, ALIGN_VCENTRE | ALIGN_HCENTRE,
+		  glow == state->grid[y*cr+x] ? COL_GLOW :
 		  state->immutable[y*cr+x] ? COL_CLUE : (hl & 16) ? COL_ERROR : COL_USER, str);
     } else {
         int i, j, npencil;
@@ -5142,6 +5226,14 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 		    /* minph--; */
 		}
 	    }
+
+	    /*
+	     * Fix position of particular pencil number
+	     * TODO: make this an option
+	     */
+	    bool fix_pencil_pos = true;
+	    if (fix_pencil_pos)
+	        npencil = cr;
 
 	    /*
 	     * We arrange our pencil marks in a grid layout, with
@@ -5197,6 +5289,9 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 	     */
 	    for (i = j = 0; i < cr; i++)
 		if (state->pencil[(y*cr+x)*cr+i]) {
+		    if (fix_pencil_pos)
+		        j = i;
+
 		    int dx = j % pw, dy = j / pw;
 
 		    str[1] = '\0';
@@ -5206,7 +5301,8 @@ static void draw_number(drawing *dr, game_drawstate *ds,
 		    draw_text(dr, pl + fontsize * (2*dx+1) / 2,
 			      pt + fontsize * (2*dy+1) / 2,
 			      FONT_VARIABLE, fontsize,
-			      ALIGN_VCENTRE | ALIGN_HCENTRE, COL_PENCIL, str);
+			      ALIGN_VCENTRE | ALIGN_HCENTRE,
+			      glow == i + 1 ? COL_GLOW : COL_PENCIL, str);
 		    j++;
 		}
 	}
@@ -5327,9 +5423,10 @@ static void game_redraw(drawing *dr, game_drawstate *ds,
                     highlight |= 32;
 	    }
 
-	    draw_number(dr, ds, state, x, y, highlight);
+	    draw_number(dr, ds, state, x, y, highlight, ui->glow);
 	}
     }
+    ds->lastglow = ui->glow;
 
     /*
      * Update the _entire_ grid if necessary.

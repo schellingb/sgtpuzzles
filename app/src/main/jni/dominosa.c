@@ -2997,7 +2997,7 @@ static game_state *execute_move(const game_state *state, const char *move)
 
             for (i = 0; i < wh2; i++) {
                 int id1 = i/2, idn = neighbors[i%2], id2 = id1 + idn, idi, j;
-                if (id2 >= wh || ret->grid[id1] != id1 || ret->grid[id2] != id2)
+                if (id2 >= wh || id1/w != id2/w || ret->grid[id1] != id1 || ret->grid[id2] != id2)
                     continue;
                 idi = DINDEX(ret->numbers->numbers[id1], ret->numbers->numbers[id2]);
 
@@ -3005,9 +3005,9 @@ static game_state *execute_move(const game_state *state, const char *move)
                     /* Check if this is a unique number pairing. */
                     for (j = 0; j < wh2; j++) {
                         int jd1 = j/2, jd2 = jd1 + neighbors[j%2], jdi;
-                        if (jd2 >= wh || j == i)
+                        if (jd2 >= wh || jd1/w != jd2/w || ret->grid[jd1] != jd1 || ret->grid[jd2] != jd2)
                             continue;
-                        if (idi == DINDEX(ret->numbers->numbers[jd1], ret->numbers->numbers[jd2]))
+                        if (j != i && idi == DINDEX(ret->numbers->numbers[jd1], ret->numbers->numbers[jd2]))
                             break;
                     }
                     if (j == wh2) {

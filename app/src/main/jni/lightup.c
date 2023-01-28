@@ -123,6 +123,17 @@ struct game_state {
 
 #define GRID(gs,grid,x,y) (gs->grid[(y)*((gs)->w) + (x)])
 
+#define DF_BLACK        1       /* black square */
+#define DF_NUMBERED     2       /* black square with number */
+#define DF_LIT          4       /* display (white) square lit up */
+#define DF_LIGHT        8       /* display light in square */
+#define DF_OVERLAP      16      /* display light as overlapped */
+#define DF_CURSOR       32      /* display cursor */
+#define DF_NUMBERWRONG  64      /* display black numbered square as error. */
+#define DF_FLASH        128     /* background flash is on. */
+#define DF_IMPOSSIBLE   256     /* display non-light little square */
+#define DF_NUMBERCORRECT 512    /* display black numbered square as correct */
+
 /* A ll_data holds information about which lights would be lit by
  * a particular grid location's light (or conversely, which locations
  * could light a specific other location). */
@@ -179,10 +190,10 @@ static void get_surrounds(const game_state *state, int ox, int oy,
 static void get_corners(const game_state *state, int ox, int oy, surrounds *s)
 {
     s->npoints = 0;
-    ADDPOINT(x > 0 && y > 0,                             ox-1, oy-1);
-    ADDPOINT(ox < (state->w-1) && y > 0,                 ox+1, oy-1);
+    ADDPOINT(ox > 0                && oy > 0,            ox-1, oy-1);
+    ADDPOINT(ox < (state->w-1)     && oy > 0,            ox+1, oy-1);
     ADDPOINT(ox < (state->w-1) > 0 && oy < (state->h-1), ox+1, oy+1);
-    ADDPOINT(x > 0 && oy < (state->h-1),                 ox-1, oy+1);
+    ADDPOINT(ox > 0                && oy < (state->h-1), ox-1, oy+1);
 }
 
 /* --- Game parameter functions --- */
@@ -522,7 +533,7 @@ static unsigned int number_wrong(const game_state *state, int x, int y)
 	empty++;
     }
 
-    if (n > lights || (n + empty < lights));
+    if (n > lights || (n + empty < lights))
         return DF_NUMBERWRONG;
 
     if (n == lights)
@@ -1893,17 +1904,6 @@ static bool game_changed_state(game_ui *ui, const game_state *oldstate,
     return newstate->completed && !newstate->used_solve && oldstate && !oldstate->completed;
 }
 
-#define DF_BLACK        1       /* black square */
-#define DF_NUMBERED     2       /* black square with number */
-#define DF_LIT          4       /* display (white) square lit up */
-#define DF_LIGHT        8       /* display light in square */
-#define DF_OVERLAP      16      /* display light as overlapped */
-#define DF_CURSOR       32      /* display cursor */
-#define DF_NUMBERWRONG  64      /* display black numbered square as error. */
-#define DF_FLASH        128     /* background flash is on. */
-#define DF_IMPOSSIBLE   256     /* display non-light little square */
-#define DF_NUMBERCORRECT 512    /* display black numbered square as correct */
-
 struct game_drawstate {
     int tilesize, crad;
     int w, h;
@@ -2035,10 +2035,10 @@ static game_state *execute_move(const game_state *state, const char *move)
                     else if (n == 3) get_corners(ret, x, y, &s);
                     else continue;
 
-                    for (i = 0; i < s.npoints; i++) {
-                        if (GRID(ret, flags, s.points[i].x, s.points[i].y) & F_BLACK) continue;
-                        set_light(ret, s.points[i].x, s.points[i].y, false);
-                        GRID(ret, flags, s.points[i].x, s.points[i].y) |= F_IMPOSSIBLE;
+                    for (n = 0; n < s.npoints; n++) {
+                        if (GRID(ret, flags, s.points[n].x, s.points[n].y) & F_BLACK) continue;
+                        set_light(ret, s.points[n].x, s.points[n].y, false);
+                        GRID(ret, flags, s.points[n].x, s.points[n].y) |= F_IMPOSSIBLE;
                     }
                 }
             }

@@ -84,6 +84,7 @@ enum {
     COL_LIGHT,			       /* white */
     COL_LIT,			       /* yellow */
     COL_ERROR,			       /* red */
+    COL_CORRECT,		       /* green */
     COL_CURSOR,
     NCOLOURS
 };
@@ -173,6 +174,15 @@ static void get_surrounds(const game_state *state, int ox, int oy,
     ADDPOINT(ox < (state->w-1), ox+1, oy);
     ADDPOINT(oy > 0,            ox,   oy-1);
     ADDPOINT(oy < (state->h-1), ox,   oy+1);
+}
+
+static void get_corners(const game_state *state, int ox, int oy, surrounds *s)
+{
+    s->npoints = 0;
+    ADDPOINT(x > 0 && y > 0,                             ox-1, oy-1);
+    ADDPOINT(ox < (state->w-1) && y > 0,                 ox+1, oy-1);
+    ADDPOINT(ox < (state->w-1) > 0 && oy < (state->h-1), ox+1, oy+1);
+    ADDPOINT(x > 0 && oy < (state->h-1),                 ox-1, oy+1);
 }
 
 /* --- Game parameter functions --- */
@@ -478,7 +488,7 @@ static bool grid_overlap(game_state *state)
     return false;
 }
 
-static bool number_wrong(const game_state *state, int x, int y)
+static unsigned int number_wrong(const game_state *state, int x, int y)
 {
     surrounds s;
     int i, n, empty, lights = GRID(state, lights, x, y);
@@ -511,7 +521,14 @@ static bool number_wrong(const game_state *state, int x, int y)
 	    continue;
 	empty++;
     }
-    return (n > lights || (n + empty < lights));
+
+    if (n > lights || (n + empty < lights));
+        return DF_NUMBERWRONG;
+
+    if (n == lights)
+        return DF_NUMBERCORRECT;
+
+    return 0;
 }
 
 static bool number_correct(game_state *state, int x, int y)
@@ -1850,6 +1867,19 @@ static void decode_ui(game_ui *ui, const char *encoding)
     /* nothing to decode. */
 }
 
+static key_label *game_request_keys(const game_params *params, int *nkeys, int *arrow_mode)
+{
+    key_label *keys = snewn(1, key_label);
+    *nkeys = 1;
+    *arrow_mode = ANDROID_NO_ARROWS;
+
+    keys[0].button = 'H';
+    keys[0].label = dupstr(_("Solve Trivial Steps"));
+    keys[0].needs_arrows = false;
+
+    return keys;
+}
+
 static void android_cursor_visibility(game_ui *ui, int visible)
 {
     ui->cur_visible = visible;
@@ -1872,6 +1902,7 @@ static bool game_changed_state(game_ui *ui, const game_state *oldstate,
 #define DF_NUMBERWRONG  64      /* display black numbered square as error. */
 #define DF_FLASH        128     /* background flash is on. */
 #define DF_IMPOSSIBLE   256     /* display non-light little square */
+#define DF_NUMBERCORRECT 512    /* display black numbered square as correct */
 
 struct game_drawstate {
     int tilesize, crad;
@@ -1921,6 +1952,8 @@ static char *interpret_move(const game_state *state, game_ui *ui,
         move_cursor(button, &ui->cur_x, &ui->cur_y, state->w, state->h, false);
         ui->cur_visible = true;
         nullret = empty;
+    } else if (button == 'H') {
+        return dupstr("H");
     } else
         return NULL;
 
@@ -1990,6 +2023,26 @@ static game_state *execute_move(const game_state *state, const char *move)
                 GRID(ret, flags, x, y) ^= F_IMPOSSIBLE;
             }
             move += n;
+        } else if (*move == 'H') {
+            /* Solve trivial steps (set any tiles around a 0 number and any corner of a 3 number as impossible). */
+            surrounds s;
+            for (y = 0; y < ret->h; y++) {
+                for (x = 0; x < ret->w; x++) {
+                    if (!(GRID(ret, flags, x, y) & DF_NUMBERED)) continue;
+
+                    n = GRID(ret, lights, x, y);
+                    if      (n == 0) get_surrounds(ret, x, y, &s);
+                    else if (n == 3) get_corners(ret, x, y, &s);
+                    else continue;
+
+                    for (i = 0; i < s.npoints; i++) {
+                        if (GRID(ret, flags, s.points[i].x, s.points[i].y) & F_BLACK) continue;
+                        set_light(ret, s.points[i].x, s.points[i].y, false);
+                        GRID(ret, flags, s.points[i].x, s.points[i].y) |= F_IMPOSSIBLE;
+                    }
+                }
+            }
+            move++;
         } else goto badmove;
 
         if (*move == ';')
@@ -2046,6 +2099,10 @@ static float *game_colours(frontend *fe, int *ncolours)
     ret[COL_ERROR * 3 + 1] = 0.25F;
     ret[COL_ERROR * 3 + 2] = 0.25F;
 
+    ret[COL_CORRECT * 3 + 0] = 0.25F;
+    ret[COL_CORRECT * 3 + 1] = 1.0F;
+    ret[COL_CORRECT * 3 + 2] = 0.25F;
+
     ret[COL_LIT * 3 + 0] = 1.0F;
     ret[COL_LIT * 3 + 1] = 1.0F;
     ret[COL_LIT * 3 + 2] = 0.0F;
@@ -2099,8 +2156,7 @@ static unsigned int tile_flags(game_drawstate *ds, const game_state *state,
         ret |= DF_BLACK;
         if (flags & F_NUMBERED) {
 #ifdef HINT_NUMBERS
-            if (number_wrong(state, x, y))
-		ret |= DF_NUMBERWRONG;
+            ret |= number_wrong(state, x, y);
 #endif
             ret |= DF_NUMBERED;
         }
@@ -2129,7 +2185,7 @@ static void tile_redraw(drawing *dr, game_drawstate *ds,
     if (ds_flags & DF_BLACK) {
         draw_rect(dr, dx, dy, TILE_SIZE, TILE_SIZE, COL_BLACK);
         if (ds_flags & DF_NUMBERED) {
-            int ccol = (ds_flags & DF_NUMBERWRONG) ? COL_ERROR : COL_LIGHT;
+            int ccol = (ds_flags & DF_NUMBERWRONG) ? COL_ERROR : (ds_flags & DF_NUMBERCORRECT) ? COL_CORRECT : COL_LIGHT;
             char str[32];
 
             /* We know that this won't change over the course of the game
